@@ -198,6 +198,9 @@ void COLMAPUndistorter::Run() {
   UndistortReconstruction(options_, &undistorted_reconstruction);
   undistorted_reconstruction.Write(JoinPaths(output_path_, "sparse"));
 
+  //mm add: write text for openmvs dense stereo
+  undistorted_reconstruction.WriteText(JoinPaths(output_path_, "sparse"));
+
   std::cout << "Writing configuration..." << std::endl;
   WritePatchMatchConfig();
   WriteFusionConfig();
