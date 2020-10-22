@@ -27,7 +27,7 @@
 // ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 // POSSIBILITY OF SUCH DAMAGE.
 //
-// Author: Johannes L. Schoenberger (jsch at inf.ethz.ch)
+// Author: Johannes L. Schoenberger (jsch-at-demuc-dot-de)
 
 #include "base/image_reader.h"
 
@@ -60,6 +60,9 @@ ImageReader::ImageReader(const ImageReaderOptions& options, Database* database)
     options_.image_list = GetRecursiveFileList(options_.image_path);
     std::sort(options_.image_list.begin(), options_.image_list.end());
   } else {
+    if (!std::is_sorted(options_.image_list.begin(), options_.image_list.end())) {
+      std::sort(options_.image_list.begin(), options_.image_list.end());
+    }
     for (auto& image_name : options_.image_list) {
       image_name = JoinPaths(options_.image_path, image_name);
     }
@@ -73,14 +76,14 @@ ImageReader::ImageReader(const ImageReaderOptions& options, Database* database)
     prev_camera_.SetCameraId(kInvalidCameraId);
     prev_camera_.SetModelIdFromName(options_.camera_model);
     if (!options_.camera_params.empty()) {
-      prev_camera_.SetParamsFromString(options_.camera_params);
+      CHECK(prev_camera_.SetParamsFromString(options_.camera_params));
       prev_camera_.SetPriorFocalLength(true);
     }
   }
 }
 
 ImageReader::Status ImageReader::Next(Camera* camera, Image* image,
-                                      Bitmap* bitmap) {
+                                      Bitmap* bitmap, Bitmap* mask) {
   CHECK_NOTNULL(camera);
   CHECK_NOTNULL(image);
   CHECK_NOTNULL(bitmap);
@@ -127,6 +130,20 @@ ImageReader::Status ImageReader::Next(Camera* camera, Image* image,
 
   if (!bitmap->Read(image_path, false)) {
     return Status::BITMAP_ERROR;
+  }
+
+  //////////////////////////////////////////////////////////////////////////////
+  // Read mask.
+  //////////////////////////////////////////////////////////////////////////////
+
+  if (mask && !options_.mask_path.empty()) {
+    const std::string mask_path =
+        JoinPaths(options_.mask_path,
+                  GetRelativePath(options_.image_path, image_path) + ".png");
+    if (ExistsFile(mask_path) && !mask->Read(mask_path, false)) {
+      // NOTE: Maybe introduce a separate error type MASK_ERROR?
+      return Status::BITMAP_ERROR;
+    }
   }
 
   //////////////////////////////////////////////////////////////////////////////
